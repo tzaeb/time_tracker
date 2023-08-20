@@ -5,9 +5,10 @@ import os
 import pandas as pd
 
 
-CSV_FILE = "timelog_streamlit.csv"
+# CSV file to store time logs
+CSV_FILE = f"time_log_{datetime.datetime.now().strftime('%V_%Y')}.csv"
 
-def last_task():
+def running_task():
 	if os.path.isfile(CSV_FILE):
 		with open(CSV_FILE, 'r') as file:
 			rows = list(csv.reader(file))
@@ -19,6 +20,15 @@ def last_task():
 				return None, 0
 	else:
 		return None, 0
+
+def get_all_tasks():
+	if os.path.isfile(CSV_FILE):
+		with open(CSV_FILE, 'r') as file:
+			rows = list(csv.reader(file))
+			tasks = [row[0] for row in rows]
+			return list(set(tasks))
+	else:
+		return []
 
 def start_task(task_name):
 	with open(CSV_FILE, 'r') as file:
@@ -71,15 +81,18 @@ def report():
 
 
 	col2.markdown(f"**Time Report (total: {round(total_duration,1)} h**)")
+	data_list = []
 	for task, time in total_times.items():
 		percentage = (time / total_duration) * 100 if total_duration else 0
-		col2.write(f"{task} --- {round(time,1)} h --- {percentage:.2f}% of total")
+		data_list.append([task, str(round(time, 1))+"h", str(round(percentage, 2))+ "%", 'running' if running_task()[0]==task else 'paused'])
+	# Convert list of lists to DataFrame for better table representation
+	df = pd.DataFrame(data_list, columns=['Task', 'Time', 'Percentage', 'Status'])
+
+	col2.table(df)
 	chart_data = pd.DataFrame.from_dict(total_times, orient='index', columns=['Time (h)'])
 	chart_data.index.name = 'Task'
-	st.bar_chart(chart_data)
+	chart_info.bar_chart(chart_data)
 
-	# Return total_duration for real-time update
-	return total_duration
 
 if not os.path.isfile(CSV_FILE):
 	with open(CSV_FILE, 'w', newline='') as file:
@@ -93,21 +106,20 @@ st.divider()
 
 col1, col2 = st.columns(2)
 task_info = col1.empty()
-input = col1.text_input("Enter command:").lower()
+chart_info = st.empty()
+input = col1.text_input("", label_visibility="hidden", placeholder="Enter command").lower()
 
-if input == "":
+if input in ["", "rep"]:
 	pass
-elif input in ["br", "end"]:
+elif input in ["br", "end", "stop"]:
 		stop_task()
-elif input == "rep":
-	total_duration = report()
 elif input.startswith("st"):
 	cmd, task  = [part.strip() for part in input.split(' ', 1)]
 	start_task(task)
 else:
 	col1.warning("command not supported")
 
-task, time = last_task()
-time_str = f"(since {time} h)"
+task, dur = running_task()
+time_str = f"(since {dur} h)"
 task_info.info(f'Current task: {"none" if task==None else task} {"" if task==None else time_str}')
 report()
