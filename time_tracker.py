@@ -7,56 +7,50 @@ import pandas as pd
 
 # CSV file to store time logs
 CSV_FILE = f"time_log_{datetime.datetime.now().strftime('%V_%Y')}.csv"
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-def running_task():
-	if os.path.isfile(CSV_FILE):
-		with open(CSV_FILE, 'r') as file:
-			rows = list(csv.reader(file))
-			if rows and not rows[-1][2]:
-				start_time = datetime.datetime.strptime(rows[-1][1], "%Y-%m-%d %H:%M:%S")
-				duration = datetime.datetime.now() - start_time
-				return rows[-1][0], round(duration.seconds/3600,1)
-			else:
-				return None, 0
+st.set_page_config(layout="wide")
+if 'input' not in st.session_state:
+    st.session_state.input = ''
+
+def read_csv(file_path):
+	if os.path.isfile(file_path):
+		with open(file_path, 'r') as file:
+			return list(csv.reader(file))
+	else:
+		return None
+
+def get_current_task():
+	rows = read_csv(CSV_FILE)
+	if rows and not rows[-1][2]:
+		start_time = datetime.datetime.strptime(rows[-1][1], DATE_FORMAT)
+		duration = datetime.datetime.now() - start_time
+		return rows[-1][0], round(duration.seconds/3600,1)
 	else:
 		return None, 0
 
-def get_all_tasks():
-	if os.path.isfile(CSV_FILE):
-		with open(CSV_FILE, 'r') as file:
-			rows = list(csv.reader(file))
-			tasks = [row[0] for row in rows]
-			return list(set(tasks))
-	else:
-		return []
-
 def start_task(task_name):
-	with open(CSV_FILE, 'r') as file:
-		rows = list(csv.reader(file))
-		if rows==[] or rows[-1][2]:
-			with open(CSV_FILE, "a", newline="") as file:
-				writer = csv.writer(file)
-				start_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-				writer.writerow([task_name, start_time, ""])
-				st.write(f"Started working on {task_name} at {start_time}.")
-		else:
-			col1.warning("Task not stopped.")
+	if not task_name.strip():
+		col1.warning("Task name cannot be empty.")
+		return
+	if task := get_current_task()[0]:
+		col1.warning(f"'{task}' stopped, '{task_name}' started")
+		stop_current_task()
+	with open(CSV_FILE, "a", newline="") as file:
+		writer = csv.writer(file)
+		start_time = datetime.datetime.now().strftime(DATE_FORMAT)
+		writer.writerow([task_name, start_time, ""])
 
-def stop_task():
-	with open(CSV_FILE, 'r') as file:
-		rows = list(csv.reader(file))
-
-	if not rows[-1][2]:
+def stop_current_task():
+	if get_current_task()[0] == None:
+		col1.warning("No task currently running.")
+	else:
+		rows = read_csv(CSV_FILE)
 		end_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 		rows[-1][2] = end_time
-
 		with open(CSV_FILE, 'w', newline='') as file:
 			writer = csv.writer(file)
 			writer.writerows(rows)
-
-		st.write(f"Stopped working on {rows[-1][0]} at {end_time}.")
-	else:
-		st.warning("No task currently running.")
 
 def compute_time_difference(start, end):
 	start_time = datetime.datetime.strptime(start, "%Y-%m-%d %H:%M:%S")
@@ -65,61 +59,66 @@ def compute_time_difference(start, end):
 
 def report():
 	total_times = {}
+	total_sessions = {}
 	total_duration = 0
 
-	with open(CSV_FILE, 'r') as file:
-		reader = csv.reader(file)
-		next(reader)  # skip the first row
-		for row in reader:
-			#if row[2]:  # only consider rows where tasks have stopped
-			duration = compute_time_difference(row[1], row[2] if row[2] else datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-			total_duration += duration/3600
-			if row[0] in total_times:
-				total_times[row[0]] += duration/3600
-			else:
-				total_times[row[0]] = duration/3600
-
+	rows = read_csv(CSV_FILE)
+	rows = rows[1:] # skip first row (header)
+	for row in rows:
+		duration = compute_time_difference(row[1], row[2] if row[2] else datetime.datetime.now().strftime(DATE_FORMAT))
+		total_duration += duration/3600
+		if row[0] in total_times:
+			total_times[row[0]] += duration/3600
+			total_sessions[row[0]] += 1
+		else:
+			total_times[row[0]] = duration/3600
+			total_sessions[row[0]] = 1
 
 	col2.markdown(f"**Time Report (total: {round(total_duration,1)} h**)")
 	data_list = []
 	for task, time in total_times.items():
 		percentage = (time / total_duration) * 100 if total_duration else 0
-		data_list.append([task, str(round(time, 1))+"h", str(round(percentage, 2))+ "%", 'running' if running_task()[0]==task else 'paused'])
+		data_list.append([task, f"{round(time, 1)}h", f"{round(percentage, 2)}%", f"{total_sessions[task]}", 'running <<' if get_current_task()[0]==task else 'paused'])
+	
 	# Convert list of lists to DataFrame for better table representation
-	df = pd.DataFrame(data_list, columns=['Task', 'Time', 'Percentage', 'Status'])
-
+	df = pd.DataFrame(data_list, columns=['Task', 'Time', 'Percentage', 'Sessions', 'Status'])
 	col2.table(df)
-	chart_data = pd.DataFrame.from_dict(total_times, orient='index', columns=['Time (h)'])
-	chart_data.index.name = 'Task'
-	chart_info.bar_chart(chart_data)
+	
+	if total_times:
+		chart_data = pd.DataFrame.from_dict(total_times, orient='index', columns=['Time (h)'])
+		chart_data.index.name = 'Task'
+		chart_info.bar_chart(chart_data)
 
+def submit():
+	input = st.session_state.widget.lower()
+	st.session_state.widget = ''
+	
+	if input in ["", "re"]:
+		pass
+	elif input in ["pa", "end", "stop"]:
+			stop_current_task()
+	elif input.startswith("st") and input != "st":
+		_, task  = [part.strip() for part in input.split(' ', 1)]
+		start_task(task)
+	else:
+		col1.warning("command not supported")
 
 if not os.path.isfile(CSV_FILE):
 	with open(CSV_FILE, 'w', newline='') as file:
 		writer = csv.writer(file)
 		writer.writerow(['task_name', 'start_time', 'end_time'])
 
-st.title("Time Tracker (v0.1.0)")
+st.title("Time Tracker (v0.1.1)")
 st.markdown("**Supported commands**")
-st.markdown("**st taskX** (starts taskX), **br** (ends last task), **rep** (shows task overview)")
+st.markdown("**st taskX** (start taskX), **pa** (pause current task), **re** (refresh task overview)")
 st.divider()
 
 col1, col2 = st.columns(2)
 task_info = col1.empty()
 chart_info = st.empty()
-input = col1.text_input("", label_visibility="hidden", placeholder="Enter command").lower()
+col1.text_input(" ", label_visibility="hidden", placeholder="Enter command", key='widget', on_change=submit)
 
-if input in ["", "rep"]:
-	pass
-elif input in ["br", "end", "stop"]:
-		stop_task()
-elif input.startswith("st"):
-	cmd, task  = [part.strip() for part in input.split(' ', 1)]
-	start_task(task)
-else:
-	col1.warning("command not supported")
-
-task, dur = running_task()
+task, dur = get_current_task()
 time_str = f"(since {dur} h)"
 task_info.info(f'Current task: {"none" if task==None else task} {"" if task==None else time_str}')
 report()
