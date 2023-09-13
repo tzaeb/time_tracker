@@ -3,11 +3,14 @@ import datetime
 import csv
 import os
 import pandas as pd
+import subprocess
 
 
 # CSV file to store time logs
 CSV_FILE = f"time_log_{datetime.datetime.now().strftime('%V_%Y')}.csv"
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+VERSION = "0.1.2"
+AUTHOR = "tzaeb"
 
 st.set_page_config(layout="wide")
 if 'input' not in st.session_state:
@@ -103,12 +106,21 @@ def submit():
 	else:
 		col1.warning("command not supported")
 
+def open_folder(folder_path):
+	subprocess.run(f'explorer "{os.path.abspath(folder_path)}"')
+
+def open_file(file_path):
+	print("here")
+	print(os.path.abspath(file_path))
+	print("here")
+	subprocess.run(f'code "{os.path.abspath(file_path)}"')
+
 if not os.path.isfile(CSV_FILE):
 	with open(CSV_FILE, 'w', newline='') as file:
 		writer = csv.writer(file)
 		writer.writerow(['task_name', 'start_time', 'end_time'])
 
-st.title("Time Tracker (v0.1.1)")
+st.title("Time Tracker")
 st.markdown("**Supported commands**")
 st.markdown("**st taskX** (start taskX), **pa** (pause current task), **re** (refresh task overview)")
 st.divider()
@@ -117,8 +129,13 @@ col1, col2 = st.columns(2)
 task_info = col1.empty()
 chart_info = st.empty()
 col1.text_input(" ", label_visibility="hidden", placeholder="Enter command", key='widget', on_change=submit)
+col1.button("Open working directory", on_click=lambda: open_folder(os.getcwd()))
+col1.button("Open current time log", on_click=lambda: open_file(CSV_FILE))
 
 task, dur = get_current_task()
 time_str = f"(since {dur} h)"
 task_info.info(f'Current task: {"none" if task==None else task} {"" if task==None else time_str}')
 report()
+
+st.divider()
+st.markdown(f'<p style="text-align: right;">Version: {VERSION}</p>', unsafe_allow_html=True)
