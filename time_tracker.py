@@ -10,7 +10,6 @@ import altair as alt
 CSV_FILE = f"time_log_{datetime.datetime.now().strftime('%V_%Y')}.csv"
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 VERSION = "0.2.0"
-AUTHOR = "tzaeb"
 
 st.set_page_config(layout="wide")
 if 'widget' not in st.session_state:
@@ -107,9 +106,8 @@ def report():
             tooltip=['Task', 'Time (h)']
         ).properties(
             width=600,
-            height=alt.Step(50),
-            title='Time per task'
-)
+            height=alt.Step(50)
+        )
 
         chart_info.altair_chart(chart, use_container_width=True)
 
@@ -142,19 +140,19 @@ if not os.path.isfile(CSV_FILE):
         writer.writerow(['task_name', 'start_time', 'end_time'])
 
 st.title("Time Tracker")
-st.markdown("**Commands: st taskX** (start taskX), **pa** (pause task), **re** (refresh overview)")
 
 col1, col2 = st.columns(2)
+cmds = "Commands: **st taskXYZ** (start taskX) / **pa** (pause task) / **re** (refresh overview)"
+col1.text_input(cmds, label_visibility="visible", placeholder="Enter command", key='widget', on_change=submit)
 task_info = col1.empty()
 chart_info = st.empty()
-col1.text_input(" ", label_visibility="hidden", placeholder="Enter command", key='widget', on_change=submit)
-col1.button("Open working directory", on_click=lambda: open_folder(os.getcwd()))
-col1.button("Open time log", on_click=lambda: open_file(CSV_FILE))
+col11,col22 = col1.columns(2)
+col11.button("Open working directory", on_click=lambda: open_folder(os.getcwd()))
+col22.button("Open time log", on_click=lambda: open_file(CSV_FILE))
 
 task, dur = get_current_task()
 time_str = f"(since {dur} h)"
 task_info.info(f'Current task: {"none" if task is None else task} {"" if task is None else time_str}')
 report()
 
-st.divider()
 st.markdown(f'<p style="text-align: right;">Version: {VERSION}</p>', unsafe_allow_html=True)
