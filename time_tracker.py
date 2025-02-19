@@ -173,7 +173,7 @@ cmds = "Commands: **st taskXYZ** (start taskX) / **pa** (pause task) / **re** (r
 col1.text_input(cmds, label_visibility="visible", placeholder="Enter command", key='widget', on_change=submit)
 task_info = col1.empty()
 chart_info = st.empty()
-col11,col22 = col1.columns(2)
+col11, col22 = col1.columns(2)
 col11.button("Open working directory", on_click=lambda: open_folder(os.getcwd()))
 col22.button("Open time log", on_click=lambda: open_file(CSV_FILE))
 
