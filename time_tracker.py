@@ -9,7 +9,7 @@ import altair as alt
 # CSV file to store time logs
 CSV_FILE = f"time_log_{datetime.datetime.now().strftime('%V_%Y')}.csv"
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 
 st.set_page_config(layout="wide")
 if 'widget' not in st.session_state:
