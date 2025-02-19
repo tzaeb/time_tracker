@@ -89,24 +89,51 @@ def report():
     col2.table(df)
     
     if total_times:
-        # Prepare data and create a horizontal Altair bar chart with rounded corners
+        # Prepare data for enhanced bar chart
         chart_data = pd.DataFrame.from_dict(total_times, orient='index', columns=['Time (h)'])
         chart_data.index.name = 'Task'
         chart_data = chart_data.reset_index()
+        
+        # Enhanced bar chart with improved UI and no border/stroke
         chart = alt.Chart(chart_data).mark_bar(
-            color="#dca11d",
-            size=30,  # Fixed thickness for each bar
-            cornerRadiusTopLeft=0,
-            cornerRadiusTopRight=10,
-            cornerRadiusBottomLeft=0,
-            cornerRadiusBottomRight=10
+            size=25,  # Slightly thinner bars for better spacing
+            cornerRadius=8,  # Unified rounded corners
+            stroke=None  # Remove stroke from bars
         ).encode(
-            x='Time (h):Q',
-            y=alt.Y('Task:N', sort='-x'),
-            tooltip=['Task', 'Time (h)']
+            x=alt.X('Time (h):Q', 
+                   title='Hours Spent',
+                   axis=alt.Axis(grid=True, gridOpacity=0.2)),
+            y=alt.Y('Task:N', 
+                   sort='-x',
+                   title='Tasks',
+                   axis=alt.Axis(labels=True, titleAngle=0, titleAlign='right')),
+            color=alt.condition(
+                alt.datum.Task == get_current_task()[0],
+                alt.value('#dca11d'),  # Highlight current task
+                alt.value('#4a86e8')   # Other tasks
+            ),
+            tooltip=[
+                alt.Tooltip('Task:N', title='Task'),
+                alt.Tooltip('Time (h):Q', title='Hours', format='.1f')
+            ]
         ).properties(
             width=600,
-            height=alt.Step(50)
+            height=alt.Step(40),  # Adjusted height per bar
+            title=alt.TitleParams(
+                text='Task Time Distribution',
+                anchor='middle',
+                fontSize=16,
+                offset=10
+            )
+        ).configure(
+            view=alt.ViewConfig(strokeWidth=0),  # Remove outer border
+            mark=alt.MarkConfig(
+                opacity=0.9  # Removed stroke-related properties
+            ),
+            axis=alt.AxisConfig(
+                labelFontSize=12,
+                titleFontSize=14
+            )
         )
 
         chart_info.altair_chart(chart, use_container_width=True)
